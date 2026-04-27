@@ -6,7 +6,13 @@ const statusColor = {
   declined: 'error',
 }
 
-export default function MentorRequestsPage({ mySessions, updateSession, onRefresh }) {
+export default function MentorRequestsPage({
+  mySessions,
+  updateSession,
+  onRefresh,
+  loadingSessions = false,
+  updatingSession = false,
+}) {
   const requests = mySessions.filter((s) => s.status === 'pending' || s.status === 'accepted' || s.status === 'declined')
 
   return (
@@ -22,7 +28,9 @@ export default function MentorRequestsPage({ mySessions, updateSession, onRefres
               Accept or decline pending mentorship sessions.
             </Typography>
           </Stack>
-          <Button variant="contained" onClick={onRefresh}>Refresh</Button>
+          <Button variant="contained" onClick={onRefresh} disabled={loadingSessions}>
+            {loadingSessions ? 'Loading...' : 'Refresh'}
+          </Button>
         </Stack>
         <Stack spacing={1.5}>
           {requests.map((session) => (
@@ -38,11 +46,23 @@ export default function MentorRequestsPage({ mySessions, updateSession, onRefres
                   <strong>Questions:</strong> {(session.questions || []).join(' | ') || 'N/A'}
                 </Typography>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                  <Button variant="contained" size="small" fullWidth onClick={() => updateSession(session.id, 'accept')}>
-                    Accept
+                  <Button
+                    variant="contained"
+                    size="small"
+                    fullWidth
+                    onClick={() => updateSession(session.id, 'accept')}
+                    disabled={updatingSession}
+                  >
+                    {updatingSession ? 'Updating...' : 'Accept'}
                   </Button>
-                  <Button variant="outlined" size="small" fullWidth onClick={() => updateSession(session.id, 'decline')}>
-                    Decline
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    fullWidth
+                    onClick={() => updateSession(session.id, 'decline')}
+                    disabled={updatingSession}
+                  >
+                    {updatingSession ? 'Updating...' : 'Decline'}
                   </Button>
                 </Stack>
               </Stack>

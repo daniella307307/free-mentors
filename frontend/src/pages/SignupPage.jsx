@@ -3,17 +3,14 @@ import {
   Button,
   Card,
   CardContent,
-  Divider,
   Link,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
-import GitHubIcon from '@mui/icons-material/GitHub'
-import GoogleIcon from '@mui/icons-material/Google'
 import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded'
 
-export default function SignupPage({ registerData, setRegisterData, register, onGoToLogin }) {
+export default function SignupPage({ registerData, setRegisterData, register, loading = false, onGoToLogin }) {
   return (
     <Card
       sx={{
@@ -117,8 +114,8 @@ export default function SignupPage({ registerData, setRegisterData, register, on
             autoComplete="new-password"
           />
 
-          <Button variant="contained" onClick={register} size="large" fullWidth sx={{ py: 1.35 }}>
-            Create Account
+          <Button variant="contained" onClick={register} size="large" fullWidth sx={{ py: 1.35 }} disabled={loading}>
+            {loading ? 'Creating account...' : 'Create Account'}
           </Button>
 
           <Typography variant="body2" color="text.secondary" sx={{ pt: 1, textAlign: 'center' }}>

@@ -47,6 +47,7 @@ import MentorProfilePage from './pages/MentorProfilePage'
 import RequestMentorshipPage from './pages/RequestMentorshipPage'
 import SignupPage from './pages/SignupPage'
 import UserProfilePage from './pages/UserProfilePage'
+import LoadingState from './components/LoadingState'
 
 const REGISTER = gql`
   mutation Register($username: String!, $email: String!, $password: String!) {
@@ -236,6 +237,7 @@ function App() {
   const [questionDraft, setQuestionDraft] = useState('')
   const [mySessions, setMySessions] = useState([])
   const [adminUsers, setAdminUsers] = useState([])
+  const [loading, setLoading] = useState({})
 
   const roleLabel = auth?.user?.role || 'guest'
   const availableNavItems = useMemo(
@@ -243,6 +245,16 @@ function App() {
     [roleLabel],
   )
   const defaultPath = homePathByRole[roleLabel] || '/auth/login'
+  const isBusy = (key) => Boolean(loading[key])
+
+  const withLoading = async (key, run) => {
+    setLoading((prev) => ({ ...prev, [key]: true }))
+    try {
+      return await run()
+    } finally {
+      setLoading((prev) => ({ ...prev, [key]: false }))
+    }
+  }
 
   const safeRequest = async (run) => {
     setError('')
@@ -256,7 +268,8 @@ function App() {
   }
 
   const register = () =>
-    safeRequest(async () => {
+    withLoading('register', () =>
+      safeRequest(async () => {
       const { email, password } = registerData
       const result = await request(REGISTER, registerData)
       if (!result.registerUser.success) return setError(result.registerUser.message)
@@ -275,39 +288,49 @@ function App() {
       setNotice('Welcome! Your account is ready.')
       const role = user?.role || 'user'
       navigate(homePathByRole[role] || '/mentors')
-    })
+      }),
+    )
 
   const login = () =>
-    safeRequest(async () => {
+    withLoading('login', () =>
+      safeRequest(async () => {
       const result = await request(LOGIN, loginData)
       if (!result.loginUser.success) return setError(result.loginUser.message)
       dispatch(setAuth({ token: result.loginUser.token, user: result.loginUser.user }))
       setNotice('Signed in successfully.')
-    })
+      }),
+    )
 
   const updateProfile = (payload) =>
-    safeRequest(async () => {
+    withLoading('profile', () =>
+      safeRequest(async () => {
       const result = await request(UPDATE_PROFILE, payload)
       if (!result.updateMyProfile.success) return setError(result.updateMyProfile.message)
       dispatch(setAuth({ token: auth.token, user: result.updateMyProfile.user }))
       setNotice(result.updateMyProfile.message || 'Profile updated.')
-    })
+      }),
+    )
 
   const loadMentors = () =>
-    safeRequest(async () => {
+    withLoading('mentors', () =>
+      safeRequest(async () => {
       const result = await request(MENTORS)
       setMentors(result.mentors || [])
       setNotice(`Loaded ${result.mentors?.length || 0} mentors.`)
-    })
+      }),
+    )
 
   const loadMentor = async (mentorId) =>
-    safeRequest(async () => {
+    withLoading('mentorProfile', () =>
+      safeRequest(async () => {
       const result = await request(MENTOR, { mentorId })
       return result.mentor
-    })
+      }),
+    )
 
   const requestSession = (mentorId) =>
-    safeRequest(async () => {
+    withLoading('requestSession', () =>
+      safeRequest(async () => {
       const questions = questionDraft
         .split('\n')
         .map((q) => q.trim())
@@ -319,39 +342,48 @@ function App() {
       setNotice('Mentorship request submitted.')
       setQuestionDraft('')
       loadMySessions()
-    })
+      }),
+    )
 
   const loadMySessions = () =>
-    safeRequest(async () => {
+    withLoading('sessions', () =>
+      safeRequest(async () => {
       const result = await request(MY_SESSIONS)
       setMySessions(result.myMentorshipSessions || [])
-    })
+      }),
+    )
 
   const loadAdminUsers = () =>
-    safeRequest(async () => {
+    withLoading('adminUsers', () =>
+      safeRequest(async () => {
       const result = await request(ALL_USERS)
       setAdminUsers(result.allUsers ?? [])
-    })
+      }),
+    )
 
   const adminSetUserRole = (userId, role) =>
-    safeRequest(async () => {
+    withLoading('setRole', () =>
+      safeRequest(async () => {
       const result = await request(ADMIN_SET_USER_ROLE, { userId, role })
       const payload = result.adminSetUserRole
       if (!payload.success) return setError(payload.message)
       const listResult = await request(ALL_USERS)
       setAdminUsers(listResult.allUsers ?? [])
       setNotice(payload.message || 'Role updated.')
-    })
+      }),
+    )
 
   const updateSession = (sessionId, action) =>
-    safeRequest(async () => {
+    withLoading('updateSession', () =>
+      safeRequest(async () => {
       const mutation = action === 'accept' ? ACCEPT_SESSION : DECLINE_SESSION
       const key = action === 'accept' ? 'acceptMentorshipSessionRequest' : 'declineMentorshipSessionRequest'
       const result = await request(mutation, { sessionId })
       if (!result[key].success) return setError(result[key].message)
       setNotice(`Session ${action}ed.`)
       loadMySessions()
-    })
+      }),
+    )
 
   const signOut = () => {
     dispatch(clearAuth())
@@ -522,6 +554,7 @@ function App() {
                           loginData={loginData}
                           setLoginData={setLoginData}
                           login={login}
+                          loading={isBusy('login')}
                           onGoToSignup={() => navigate('/auth/signup')}
                         />
                     ) : (
@@ -537,6 +570,7 @@ function App() {
                           registerData={registerData}
                           setRegisterData={setRegisterData}
                           register={register}
+                          loading={isBusy('register')}
                           onGoToLogin={() => navigate('/auth/login')}
                         />
                     ) : (
@@ -548,7 +582,7 @@ function App() {
                   path="/profile"
                   element={
                     ['user', 'mentor', 'admin'].includes(roleLabel) ? (
-                        <UserProfilePage user={auth?.user} onSaveProfile={updateProfile} />
+                        <UserProfilePage user={auth?.user} onSaveProfile={updateProfile} loading={isBusy('profile')} />
                     ) : (
                       <Navigate to={defaultPath} replace />
                     )
@@ -561,6 +595,7 @@ function App() {
                         <MentorsPage
                           mentors={mentors}
                           loadMentors={loadMentors}
+                          loading={isBusy('mentors')}
                           openMentor={(mentorId) => navigate(`/mentors/${mentorId}`)}
                         />
                     ) : (
@@ -578,6 +613,8 @@ function App() {
                           setQuestionDraft={setQuestionDraft}
                           requestSession={requestSession}
                           canRequest={Boolean(auth.token)}
+                          loadingMentor={isBusy('mentorProfile')}
+                          submittingRequest={isBusy('requestSession')}
                         />
                     ) : (
                       <Navigate to={defaultPath} replace />
@@ -594,6 +631,8 @@ function App() {
                           setQuestionDraft={setQuestionDraft}
                           loadMentors={loadMentors}
                           requestSession={requestSession}
+                          loadingMentors={isBusy('mentors')}
+                          submittingRequest={isBusy('requestSession')}
                         />
                     ) : (
                       <Navigate to={defaultPath} replace />
@@ -609,6 +648,8 @@ function App() {
                           role={auth?.user?.role}
                           loadMySessions={loadMySessions}
                           updateSession={updateSession}
+                          loadingSessions={isBusy('sessions')}
+                          updatingSession={isBusy('updateSession')}
                         />
                     ) : (
                       <Navigate to={defaultPath} replace />
@@ -622,6 +663,7 @@ function App() {
                         <MentorDashboardPage
                           mySessions={mySessions}
                           onLoadSessions={loadMySessions}
+                          loadingSessions={isBusy('sessions')}
                         />
                     ) : (
                       <Navigate to={defaultPath} replace />
@@ -636,6 +678,8 @@ function App() {
                           mySessions={mySessions}
                           updateSession={updateSession}
                           onRefresh={loadMySessions}
+                          loadingSessions={isBusy('sessions')}
+                          updatingSession={isBusy('updateSession')}
                         />
                     ) : (
                       <Navigate to={defaultPath} replace />
@@ -653,6 +697,8 @@ function App() {
                           currentUserId={auth?.user?.id}
                           onLoadUsers={loadAdminUsers}
                           onSetUserRole={adminSetUserRole}
+                          loadingUsers={isBusy('adminUsers')}
+                          updatingRole={isBusy('setRole')}
                           onGoToMentors={() => navigate('/mentors')}
                           onGoToSessions={() => navigate('/sessions')}
                         />
@@ -670,7 +716,7 @@ function App() {
   )
 }
 
-function MentorsPage({ mentors, loadMentors, openMentor }) {
+function MentorsPage({ mentors, loadMentors, openMentor, loading }) {
   return (
     <Grid container spacing={2.5}>
       <Grid size={12}>
@@ -686,9 +732,12 @@ function MentorsPage({ mentors, loadMentors, openMentor }) {
                   Browse mentors and open their detailed profile.
                 </Typography>
               </Stack>
-              <Button size="small" variant="contained" onClick={loadMentors}>Refresh</Button>
+              <Button size="small" variant="contained" onClick={loadMentors} disabled={loading}>
+                {loading ? 'Loading...' : 'Refresh'}
+              </Button>
             </Stack>
             <Stack spacing={1}>
+              {loading ? <LoadingState label="Loading mentors..." compact /> : null}
               {mentors.map((m) => (
                 <Paper key={m.id} sx={{ p: 2, border: '1px solid', borderColor: 'divider' }} elevation={0}>
                   <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
@@ -719,7 +768,7 @@ function MentorsPage({ mentors, loadMentors, openMentor }) {
   )
 }
 
-function SessionsPage({ mySessions, role, loadMySessions, updateSession }) {
+function SessionsPage({ mySessions, role, loadMySessions, updateSession, loadingSessions, updatingSession }) {
   return (
     <Card sx={{ border: '1px solid', borderColor: 'divider' }} elevation={0}>
       <CardContent>
@@ -733,9 +782,12 @@ function SessionsPage({ mySessions, role, loadMySessions, updateSession }) {
               Track all your requests and session statuses.
             </Typography>
           </Stack>
-          <Button variant="contained" onClick={loadMySessions}>Refresh</Button>
+          <Button variant="contained" onClick={loadMySessions} disabled={loadingSessions}>
+            {loadingSessions ? 'Loading...' : 'Refresh'}
+          </Button>
         </Stack>
         <Stack spacing={1.5}>
+          {loadingSessions ? <LoadingState label="Loading sessions..." compact /> : null}
           {mySessions.map((session) => (
             <Paper key={session.id} sx={{ p: 2, border: '1px solid', borderColor: 'divider' }} elevation={0}>
               <Stack spacing={1}>
@@ -753,8 +805,12 @@ function SessionsPage({ mySessions, role, loadMySessions, updateSession }) {
                 <Typography variant="body2" color="text.secondary"><strong>Questions:</strong> {(session.questions || []).join(' | ') || 'N/A'}</Typography>
                 {role === 'mentor' ? (
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                    <Button variant="contained" size="small" fullWidth onClick={() => updateSession(session.id, 'accept')}>Accept</Button>
-                    <Button variant="outlined" size="small" fullWidth onClick={() => updateSession(session.id, 'decline')}>Decline</Button>
+                    <Button variant="contained" size="small" fullWidth onClick={() => updateSession(session.id, 'accept')} disabled={updatingSession}>
+                      {updatingSession ? 'Updating...' : 'Accept'}
+                    </Button>
+                    <Button variant="outlined" size="small" fullWidth onClick={() => updateSession(session.id, 'decline')} disabled={updatingSession}>
+                      {updatingSession ? 'Updating...' : 'Decline'}
+                    </Button>
                   </Stack>
                 ) : null}
               </Stack>

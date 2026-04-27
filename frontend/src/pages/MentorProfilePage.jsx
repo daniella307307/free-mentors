@@ -13,6 +13,7 @@ import {
 } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import { useNavigate, useParams } from 'react-router-dom'
+import LoadingState from '../components/LoadingState'
 
 export default function MentorProfilePage({
   loadMentor,
@@ -20,6 +21,8 @@ export default function MentorProfilePage({
   setQuestionDraft,
   requestSession,
   canRequest,
+  loadingMentor = false,
+  submittingRequest = false,
 }) {
   const navigate = useNavigate()
   const { mentorId } = useParams()
@@ -131,12 +134,12 @@ export default function MentorProfilePage({
               <Button
                 variant="contained"
                 onClick={() => requestSession(mentor.id)}
-                disabled={!canRequest}
+                disabled={!canRequest || submittingRequest}
                 size="large"
                 fullWidth
                 sx={{ py: 1.25 }}
               >
-                Request mentorship session
+                {submittingRequest ? 'Submitting request...' : 'Request mentorship session'}
               </Button>
               {!canRequest ? (
                 <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
@@ -146,7 +149,7 @@ export default function MentorProfilePage({
             </Stack>
           </Stack>
         ) : (
-          <Typography color="text.secondary">Loading mentor profile...</Typography>
+          <LoadingState label={loadingMentor ? 'Loading mentor profile...' : 'Mentor profile unavailable.'} />
         )}
       </CardContent>
     </Card>

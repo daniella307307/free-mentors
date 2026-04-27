@@ -5,25 +5,21 @@ import {
   Card,
   CardContent,
   Checkbox,
-  Divider,
   FormControlLabel,
   Link,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
-import GitHubIcon from '@mui/icons-material/GitHub'
-import GoogleIcon from '@mui/icons-material/Google'
 import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded'
 
-export default function LoginPage({ loginData, setLoginData, login, onGoToSignup }) {
+export default function LoginPage({ loginData, setLoginData, login, loading = false, onGoToSignup }) {
   const [remember, setRemember] = useState(true)
 
   return (
     <Card
       sx={{
-        width: '100%',
-        height: '100%',
+        width:"100%",
         maxWidth: 440,
         mx: 'auto',
         borderRadius: 4,
@@ -145,8 +141,8 @@ export default function LoginPage({ loginData, setLoginData, login, onGoToSignup
             </Link>
           </Stack>
 
-          <Button variant="contained" onClick={login} size="large" fullWidth sx={{ py: 1.35 }}>
-            Sign In
+          <Button variant="contained" onClick={login} size="large" fullWidth sx={{ py: 1.35 }} disabled={loading}>
+            {loading ? 'Signing in...' : 'Sign In'}
           </Button>
 
           

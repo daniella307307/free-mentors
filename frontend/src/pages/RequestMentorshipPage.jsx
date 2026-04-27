@@ -1,5 +1,6 @@
 import { Button, Card, CardContent, MenuItem, Stack, TextField, Typography } from '@mui/material'
 import { useState } from 'react'
+import LoadingState from '../components/LoadingState'
 
 export default function RequestMentorshipPage({
   mentors,
@@ -7,6 +8,8 @@ export default function RequestMentorshipPage({
   setQuestionDraft,
   loadMentors,
   requestSession,
+  loadingMentors = false,
+  submittingRequest = false,
 }) {
   const [selectedMentorId, setSelectedMentorId] = useState('')
 
@@ -24,10 +27,17 @@ export default function RequestMentorshipPage({
 
         <Stack spacing={2}>
           <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'flex-end' }}>
-            <Button variant="outlined" color="inherit" onClick={loadMentors} sx={{ borderColor: 'divider', fontWeight: 600 }}>
-              Refresh mentor list
+            <Button
+              variant="outlined"
+              color="inherit"
+              onClick={loadMentors}
+              sx={{ borderColor: 'divider', fontWeight: 600 }}
+              disabled={loadingMentors}
+            >
+              {loadingMentors ? 'Loading mentors...' : 'Refresh mentor list'}
             </Button>
           </Stack>
+          {loadingMentors ? <LoadingState label="Loading mentors..." compact /> : null}
           <TextField
             select
             label="Mentor"
@@ -55,11 +65,11 @@ export default function RequestMentorshipPage({
             variant="contained"
             size="large"
             fullWidth
-            disabled={!selectedMentorId}
+            disabled={!selectedMentorId || submittingRequest}
             onClick={() => requestSession(selectedMentorId)}
             sx={{ py: 1.25 }}
           >
-            Send mentorship request
+            {submittingRequest ? 'Sending request...' : 'Send mentorship request'}
           </Button>
         </Stack>
       </CardContent>

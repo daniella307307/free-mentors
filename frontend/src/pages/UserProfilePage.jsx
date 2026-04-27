@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Avatar, Button, Card, CardContent, Grid, Stack, TextField, Typography } from '@mui/material'
 
-export default function UserProfilePage({ user, onSaveProfile }) {
+export default function UserProfilePage({ user, onSaveProfile, loading = false }) {
   const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.username || 'User'
   const [draft, setDraft] = useState({})
   const valueOf = (field) => (draft[field] ?? user?.[field] ?? '')
@@ -101,6 +101,7 @@ export default function UserProfilePage({ user, onSaveProfile }) {
             <Button
               variant="contained"
               fullWidth
+              disabled={loading}
               sx={{ maxWidth: { sm: 260 }, py: 1.2 }}
               onClick={() =>
                 onSaveProfile({
@@ -114,7 +115,7 @@ export default function UserProfilePage({ user, onSaveProfile }) {
                 })
               }
             >
-              Save Profile
+              {loading ? 'Saving profile...' : 'Save Profile'}
             </Button>
           </Grid>
         </Grid>

@@ -17,6 +17,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material'
+import LoadingState from '../components/LoadingState'
 
 const ROLE_OPTIONS = ['user', 'mentor', 'admin']
 
@@ -27,6 +28,8 @@ export default function AdminHomePage({
   currentUserId,
   onLoadUsers,
   onSetUserRole,
+  loadingUsers = false,
+  updatingRole = false,
   onGoToMentors,
   onGoToSessions,
 }) {
@@ -54,8 +57,8 @@ export default function AdminHomePage({
           </Stack>
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-            <Button variant="outlined" onClick={onLoadUsers} fullWidth sx={{ py: 1.1, borderColor: 'divider' }}>
-              Refresh user list
+            <Button variant="outlined" onClick={onLoadUsers} fullWidth sx={{ py: 1.1, borderColor: 'divider' }} disabled={loadingUsers}>
+              {loadingUsers ? 'Loading users...' : 'Refresh user list'}
             </Button>
             <Button variant="outlined" onClick={onGoToMentors} fullWidth sx={{ py: 1.1, borderColor: 'divider' }}>
               Open mentors
@@ -78,6 +81,7 @@ export default function AdminHomePage({
           </Typography>
 
           <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
+            {loadingUsers ? <LoadingState label="Loading users..." compact /> : null}
             <Table size="small" sx={{ minWidth: 720 }}>
               <TableHead>
                 <TableRow>
@@ -103,6 +107,7 @@ export default function AdminHomePage({
                               value={u.role}
                               onChange={(e) => onSetUserRole(u.id, e.target.value)}
                               sx={{ fontWeight: 600, textTransform: 'capitalize' }}
+                              disabled={updatingRole}
                             >
                               {ROLE_OPTIONS.map((r) => (
                                 <MenuItem key={r} value={r}>

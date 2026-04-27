@@ -1,7 +1,7 @@
 import { Button, Card, CardContent, Chip, Stack, Typography } from '@mui/material'
 import { useMemo } from 'react'
 
-export default function MentorDashboardPage({ mySessions, onLoadSessions }) {
+export default function MentorDashboardPage({ mySessions, onLoadSessions, loadingSessions = false }) {
   const stats = useMemo(() => {
     const pending = mySessions.filter((s) => s.status === 'pending').length
     const accepted = mySessions.filter((s) => s.status === 'accepted').length
@@ -23,8 +23,8 @@ export default function MentorDashboardPage({ mySessions, onLoadSessions }) {
           <Chip label={`Accepted: ${stats.accepted}`} color="success" variant="outlined" />
           <Chip label={`Declined: ${stats.declined}`} color="error" variant="outlined" />
         </Stack>
-        <Button variant="contained" onClick={onLoadSessions} sx={{ py: 1.1, px: 2.5 }}>
-          Refresh sessions
+        <Button variant="contained" onClick={onLoadSessions} sx={{ py: 1.1, px: 2.5 }} disabled={loadingSessions}>
+          {loadingSessions ? 'Loading sessions...' : 'Refresh sessions'}
         </Button>
       </CardContent>
     </Card>
