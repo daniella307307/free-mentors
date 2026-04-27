@@ -102,6 +102,49 @@ class FreeMentorsGraphQLTests(TestCase):
         self.assertTrue(data["success"])
         self.assertEqual(data["user"]["role"], "mentor")
 
+    def test_all_users_requires_admin(self):
+        user = self.create_user("plain", "plain@example.com", "pass123", role="user")
+        self.create_user("other", "other@example.com", "pass123", role="user")
+        query = """
+        query {
+          allUsers { id email }
+        }
+        """
+        result = self.execute(query, token=self.token_for(user))
+        self.assertIsNotNone(result.errors)
+
+    def test_admin_can_list_all_users(self):
+        admin = self.create_user("admin2", "admin2@example.com", "pass123", role="admin")
+        self.create_user("u3", "u3@example.com", "pass123", role="user")
+        query = """
+        query {
+          allUsers { id email role }
+        }
+        """
+        result = self.execute(query, token=self.token_for(admin))
+        self.assertIsNone(result.errors)
+        users = result.data["allUsers"]
+        self.assertEqual(len(users), 2)
+
+    def test_admin_can_set_user_role(self):
+        admin = self.create_user("admin3", "admin3@example.com", "pass123", role="admin")
+        target = self.create_user("tom", "tom@example.com", "pass123", role="user")
+        token = self.token_for(admin)
+        query = f"""
+        mutation {{
+          adminSetUserRole(userId: "{str(target.id)}", role: "mentor") {{
+            success
+            message
+            user {{ id role }}
+          }}
+        }}
+        """
+        result = self.execute(query, token=token)
+        self.assertIsNone(result.errors)
+        data = result.data["adminSetUserRole"]
+        self.assertTrue(data["success"])
+        self.assertEqual(data["user"]["role"], "mentor")
+
     def test_can_get_mentors_and_specific_mentor(self):
         mentor = self.create_user("mentor1", "mentor1@example.com", "pass123", role="mentor")
         self.create_user("user1", "user1@example.com", "pass123", role="user")

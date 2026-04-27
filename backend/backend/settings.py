@@ -3,12 +3,26 @@ import os
 import sys
 
 import mongoengine  # type: ignore
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "your-secret-keySOMETHIGNRANDOMANDHASMYNAMEGANZAINIT1005"
-DEBUG = True
-ALLOWED_HOSTS = []
+# Load backend/.env (and repo-root .env) so MONGODB_URI etc. apply when you run manage.py.
+load_dotenv(BASE_DIR / ".env")
+load_dotenv(BASE_DIR.parent / ".env")
+
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    "your-secret-keySOMETHIGNRANDOMANDHASMYNAMEGANZAINIT1005",
+)
+DEBUG = os.getenv("DEBUG", "true").lower() in ("1", "true", "yes")
+
+_default_hosts = "localhost,127.0.0.1"
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in os.getenv("ALLOWED_HOSTS", _default_hosts).split(",")
+    if h.strip()
+]
 
 INSTALLED_APPS = [
     "django.contrib.auth",          # ← required by graphene_django
@@ -55,21 +69,26 @@ DATABASES = {
 # MongoDB connection (use in-memory mock during tests or when explicitly enabled)
 USE_MOCK_DB = os.getenv("USE_MOCK_DB", "false").lower() == "true"
 
-if "test" in sys.argv or USE_MOCK_DB:
-    import mongomock  # type: ignore
+_mongo_db = os.getenv("MONGODB_DB", "free_mentors")
 
+if "test" in sys.argv or USE_MOCK_DB:
+    import mongomock
+
+    _mock_uri = os.getenv("MONGODB_URI", "mongodb://127.0.0.1:27017")
     mongoengine.connect(
-        db="free_mentors_test" if "test" in sys.argv else "free_mentors_dev",
-        host="mongodb://localhost",
+        db=_mongo_db,
+        host=_mock_uri,
         mongo_client_class=mongomock.MongoClient,
         alias="default",
     )
 else:
-    mongoengine.connect(
-        db="free_mentors",
-        host="mongodb+srv://root:root@cluster0.bydvtkw.mongodb.net/?appName=Cluster0",
-        alias="default",
-    )
+    _mongo_uri = os.getenv("MONGODB_URI")
+    if not _mongo_uri:
+        raise RuntimeError(
+            "Set MONGODB_URI in backend/.env (loaded automatically) or in the environment."
+        )
+    mongoengine.connect(db=_mongo_db, host=_mongo_uri, alias="default")
+    
 
 GRAPHENE = {"SCHEMA": "backend.schema.schema"}
 JWT_EXPIRY_HOURS = 24

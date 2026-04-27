@@ -1,0 +1,15 @@
+.git
+.gitignore
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+venv
+.env
+.env.*
+frontend/node_modules
+frontend/dist
+*.md
+hs_err_pid*
+replay_pid*
+.cursor
+agent-transcripts

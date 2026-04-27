@@ -4,6 +4,7 @@ import bcrypt  # type: ignore
 import graphene  # type: ignore
 import jwt  # type: ignore
 from django.conf import settings
+from graphql import GraphQLError  # type: ignore
 from mongoengine.queryset.visitor import Q  # type: ignore
 
 from .models import MentorshipSession, User
@@ -120,7 +121,7 @@ class RegisterUser(graphene.Mutation):
         user.save()
         return RegisterUser(
             success=True,
-            message="User created successfully.",
+            message="User is successfully logged in.",
             user=user_to_type(user),
         )
 
@@ -165,7 +166,7 @@ class LoginUser(graphene.Mutation):
 
         return LoginUser(
             success=True,
-            message="Login successful.",
+            message="User is successfully logged in.",
             token=token,
             user=user_to_type(user),
         )
@@ -191,6 +192,95 @@ class ChangeUserToMentor(graphene.Mutation):
         user.role = "mentor"
         user.save()
         return ChangeUserToMentor(success=True, message="User updated to mentor.", user=user_to_type(user))
+
+
+class AdminSetUserRole(graphene.Mutation):
+    """Set a user's role (admin only). Prefer this over pasting raw user IDs in a separate form."""
+
+    class Arguments:
+        user_id = graphene.String(required=True)
+        role = graphene.String(required=True)
+
+    success = graphene.Boolean()
+    message = graphene.String()
+    user = graphene.Field(UserType)
+
+    def mutate(self, info, user_id, role):
+        auth_user = get_auth_user(info)
+        if not auth_user or auth_user.role != "admin":
+            return AdminSetUserRole(success=False, message="Admin access required.", user=None)
+
+        if role not in User.ROLE_CHOICES:
+            return AdminSetUserRole(success=False, message=f"Invalid role. Use one of: {User.ROLE_CHOICES}.", user=None)
+
+        target = User.objects(id=user_id).first()
+        if not target:
+            return AdminSetUserRole(success=False, message="User not found.", user=None)
+
+        if str(target.id) == str(auth_user.id) and role != "admin":
+            return AdminSetUserRole(
+                success=False,
+                message="You cannot remove your own admin role.",
+                user=None,
+            )
+
+        target.role = role
+        target.save()
+        return AdminSetUserRole(
+            success=True,
+            message="User role updated.",
+            user=user_to_type(target),
+        )
+
+
+class UpdateMyProfile(graphene.Mutation):
+    class Arguments:
+        firstName = graphene.String()
+        lastName = graphene.String()
+        address = graphene.String()
+        bio = graphene.String()
+        occupation = graphene.String()
+        expertise = graphene.String()
+        profilePicture = graphene.String()
+
+    success = graphene.Boolean()
+    message = graphene.String()
+    user = graphene.Field(UserType)
+
+    def mutate(
+        self,
+        info,
+        firstName=None,
+        lastName=None,
+        address=None,
+        bio=None,
+        occupation=None,
+        expertise=None,
+        profilePicture=None,
+    ):
+        auth_user = get_auth_user(info)
+        if not auth_user:
+            return UpdateMyProfile(success=False, message="Authentication required.", user=None)
+
+        updates = {
+            "firstName": firstName,
+            "lastName": lastName,
+            "address": address,
+            "bio": bio,
+            "occupation": occupation,
+            "expertise": expertise,
+            "profilePicture": profilePicture,
+        }
+        for field, value in updates.items():
+            if value is not None:
+                setattr(auth_user, field, value)
+
+        auth_user.save()
+        return UpdateMyProfile(
+            success=True,
+            message="Profile updated successfully.",
+            user=user_to_type(auth_user),
+        )
 
 
 class CreateMentorshipSessionRequest(graphene.Mutation):
@@ -280,7 +370,10 @@ class Query(graphene.ObjectType):
     my_mentorship_sessions = graphene.List(MentorshipSessionType)
 
     def resolve_all_users(self, info):
-        return [user_to_type(u) for u in User.objects.all()]
+        auth_user = get_auth_user(info)
+        if not auth_user or auth_user.role != "admin":
+            raise GraphQLError("Admin access required.")
+        return [user_to_type(u) for u in User.objects.order_by("-createdAt")]
 
     def resolve_mentors(self, info):
         return [user_to_type(u) for u in User.objects(role="mentor")]
@@ -303,6 +396,8 @@ class Mutation(graphene.ObjectType):
     register_user = RegisterUser.Field()
     login_user    = LoginUser.Field()
     change_user_to_mentor = ChangeUserToMentor.Field()
+    admin_set_user_role = AdminSetUserRole.Field()
+    update_my_profile = UpdateMyProfile.Field()
     create_mentorship_session_request = CreateMentorshipSessionRequest.Field()
     accept_mentorship_session_request = AcceptMentorshipSessionRequest.Field()
     decline_mentorship_session_request = DeclineMentorshipSessionRequest.Field()
