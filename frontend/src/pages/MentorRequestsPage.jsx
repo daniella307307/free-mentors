@@ -7,7 +7,8 @@ export default function MentorRequestsPage({
   updateSession,
   onRefresh,
   loadingSessions = false,
-  updatingSession = false,
+  /** Per-session busy flag so one Accept/Decline does not disable every row */
+  sessionActionBusy = () => false,
 }) {
   const requests = mySessions.filter(
     (s) => s.status === 'pending' || s.status === 'accepted' || s.status === 'completed' || s.status === 'declined',
@@ -26,7 +27,9 @@ export default function MentorRequestsPage({
           }
         />
         <Stack spacing={1.5}>
-          {requests.map((session) => (
+          {requests.map((session) => {
+            const rowBusy = sessionActionBusy(session.id)
+            return (
             <Paper
               key={session.id}
               elevation={0}
@@ -65,24 +68,25 @@ export default function MentorRequestsPage({
                       size="small"
                       fullWidth
                       onClick={() => updateSession(session.id, 'accept')}
-                      disabled={updatingSession}
+                      disabled={rowBusy}
                     >
-                      {updatingSession ? 'Updating…' : 'Accept'}
+                      {rowBusy ? 'Updating…' : 'Accept'}
                     </Button>
                     <Button
                       variant="outlined"
                       size="small"
                       fullWidth
                       onClick={() => updateSession(session.id, 'decline')}
-                      disabled={updatingSession}
+                      disabled={rowBusy}
                     >
-                      {updatingSession ? 'Updating…' : 'Decline'}
+                      {rowBusy ? 'Updating…' : 'Decline'}
                     </Button>
                   </Stack>
                 ) : null}
               </Stack>
             </Paper>
-          ))}
+            )
+          })}
           {!requests.length ? (
             <Typography color="text.secondary">
               No requests yet. When a mentee books you, pending sessions will appear here.

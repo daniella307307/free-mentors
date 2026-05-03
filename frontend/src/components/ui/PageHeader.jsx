@@ -10,7 +10,7 @@ export default function PageHeader({ title, subtitle, action = null, component: 
       direction={{ xs: 'column', sm: 'row' }}
       spacing={1.5}
       sx={{
-        mb: 2.5,
+        mb: 2,
         alignItems: { xs: 'flex-start', sm: 'center' },
         justifyContent: 'space-between',
         gap: 1.5,

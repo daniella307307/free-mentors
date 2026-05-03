@@ -55,10 +55,10 @@ export default function HomePage({
       spacing={0}
       sx={{
         // Extra space on mobile: guest bottom bar + footer
-        pb: showMobileGuestNav ? { xs: 14, md: 4 } : { xs: 2, md: 0 },
+        pb: showMobileGuestNav ? { xs: 3, sm: 3 } : { xs: 2, sm: 2 },
       }}
     >
-      <Container maxWidth="lg" sx={{ pt: { xs: 8, sm: 8 }, pb: 0 }}>
+      <Container maxWidth="lg" sx={{ pt: { xs: 3, sm: 3 }, pb: 0 }}>
         <HeroSection
           isLoggedIn={isLoggedIn}
           onGetStarted={onGetStarted}

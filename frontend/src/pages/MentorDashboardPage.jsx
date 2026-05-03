@@ -1,8 +1,15 @@
-import { Button, Card, CardContent, Chip, Grid, Paper, Typography } from '@mui/material'
+import { Button, Card, CardContent, Chip, Grid, Paper, Stack, Typography } from '@mui/material'
+import PersonSearchRoundedIcon from '@mui/icons-material/PersonSearchRounded'
 import { useMemo } from 'react'
 import PageHeader from '../components/ui/PageHeader'
 
-export default function MentorDashboardPage({ mySessions, onLoadSessions, loadingSessions = false }) {
+export default function MentorDashboardPage({
+  mySessions,
+  onLoadSessions,
+  loadingSessions = false,
+  mentorUserId = null,
+  onViewPublicProfile,
+}) {
   const stats = useMemo(() => {
     const pending = mySessions.filter((s) => s.status === 'pending').length
     const accepted = mySessions.filter((s) => s.status === 'accepted').length
@@ -25,14 +32,27 @@ export default function MentorDashboardPage({ mySessions, onLoadSessions, loadin
           title="Mentor dashboard"
           subtitle="Track incoming mentorship requests and your session statuses."
           action={
-            <Button
-              variant="contained"
-              onClick={onLoadSessions}
-              disabled={loadingSessions}
-              aria-busy={loadingSessions}
-            >
-              {loadingSessions ? 'Loading…' : 'Refresh sessions'}
-            </Button>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
+              {mentorUserId && onViewPublicProfile ? (
+                <Button
+                  variant="outlined"
+                  color="inherit"
+                  startIcon={<PersonSearchRoundedIcon />}
+                  onClick={() => onViewPublicProfile(mentorUserId)}
+                  sx={{ borderColor: 'divider', fontWeight: 700 }}
+                >
+                  My public profile
+                </Button>
+              ) : null}
+              <Button
+                variant="contained"
+                onClick={onLoadSessions}
+                disabled={loadingSessions}
+                aria-busy={loadingSessions}
+              >
+                {loadingSessions ? 'Loading…' : 'Refresh sessions'}
+              </Button>
+            </Stack>
           }
         />
 

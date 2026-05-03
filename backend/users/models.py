@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.utils import timezone
+from django_mongodb_backend.fields import ObjectIdAutoField
 
 
 class UserManager(BaseUserManager):
@@ -28,7 +29,9 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractUser):
-    """Application user with mentorship roles (stored in SQL; Django admin + GraphQL)."""
+    """Application user with mentorship roles (MongoDB via django-mongodb-backend)."""
+
+    id = ObjectIdAutoField(primary_key=True)
 
     class Role(models.TextChoices):
         USER = "user", "User"
@@ -62,6 +65,8 @@ class User(AbstractUser):
 
 
 class MentorshipSession(models.Model):
+    id = ObjectIdAutoField(primary_key=True)
+
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         ACCEPTED = "accepted", "Accepted"
@@ -101,6 +106,8 @@ class MentorshipSession(models.Model):
 
 
 class MentorReview(models.Model):
+    id = ObjectIdAutoField(primary_key=True)
+
     mentor = models.ForeignKey(
         User,
         on_delete=models.CASCADE,

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Alert, Box, Snackbar, Stack, useMediaQuery, useTheme } from '@mui/material'
+import { useEffect, useMemo, useState } from 'react'
+import { Alert, Box, Snackbar, useMediaQuery, useTheme } from '@mui/material'
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded'
 import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded'
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
@@ -20,6 +20,7 @@ import {
   FLAGGED_MENTOR_REVIEWS,
   FLAG_MENTOR_REVIEW,
   LOGIN,
+  ME,
   MENTOR,
   MENTOR_REVIEWS,
   MENTORS,
@@ -28,6 +29,7 @@ import {
   REGISTER,
   UPDATE_PROFILE,
 } from './api/graphql'
+import { getStoredToken } from './api'
 import { request } from './api/request'
 import AppShell from './components/layout/AppShell'
 import AppNavigation from './components/layout/AppNavigation'
@@ -52,9 +54,9 @@ const navItems = [
   { key: 'mentors', path: '/mentors', label: 'Mentors', icon: <GroupsRoundedIcon fontSize="small" />, roles: ['guest', 'user', 'mentor'] },
   { key: 'request-mentorship', path: '/request-mentorship', label: 'Request Mentorship', icon: <PersonAddAlt1RoundedIcon fontSize="small" />, roles: ['user'] },
   { key: 'sessions', path: '/sessions', label: 'My Sessions', icon: <EventNoteRoundedIcon fontSize="small" />, roles: ['user', 'mentor'] },
-  { key: 'mentor-dashboard', path: '/mentor/dashboard', label: 'Mentor Dashboard', icon: <HomeIcon fontSize="small" />, roles: ['mentor'] },
+  //{ key: 'mentor-dashboard', path: '/mentor/dashboard', label: 'Mentor Dashboard', icon: <HomeIcon fontSize="small" />, roles: ['mentor'] },
   { key: 'mentor-requests', path: '/mentor/requests', label: 'Mentor Requests', icon: <EventNoteRoundedIcon fontSize="small" />, roles: ['mentor'] },
-  { key: 'admin', path: '/admin', label: 'Admin Overview', icon: <AdminPanelSettingsRoundedIcon fontSize="small" />, roles: ['admin'] },
+  // { key: 'admin', path: '/admin', label: 'Admin Overview', icon: <AdminPanelSettingsRoundedIcon fontSize="small" />, roles: ['admin'] },
   { key: 'profile', path: '/profile', label: 'Profile', icon: <PersonIcon fontSize="small" />, roles: ['user', 'mentor', 'admin'] },
 ]
 
@@ -98,6 +100,21 @@ function App() {
   )
   const defaultPath = homePathByRole[roleLabel] || '/auth/login'
   const isBusy = (key) => Boolean(loading[key])
+
+  useEffect(() => {
+    if (!auth?.token) return
+    let cancelled = false
+    request(ME)
+      .then((data) => {
+        if (cancelled || !data?.me) return
+        const token = getStoredToken()
+        if (token) dispatch(setAuth({ token, user: data.me }))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [auth?.token, dispatch])
 
   const showToast = (message, severity = 'success') => {
     setToast({ open: true, message, severity })
@@ -171,10 +188,11 @@ function App() {
         const result = await request(UPDATE_PROFILE, payload)
         if (!result.updateMyProfile.success) {
           showToast(result.updateMyProfile.message, 'error')
-          return
+          return false
         }
         dispatch(setAuth({ token: auth.token, user: result.updateMyProfile.user }))
         showToast(result.updateMyProfile.message || 'Profile updated.', 'success')
+        return true
       }),
     )
 
@@ -306,6 +324,12 @@ function App() {
     ])
   }
 
+  useEffect(() => {
+    if (location.pathname !== '/' || !auth.token || roleLabel === 'guest') return
+    void loadHomepageData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load on / when session becomes authenticated
+  }, [location.pathname, auth.token, roleLabel])
+
   const loadAdminUsers = () =>
     withLoading('adminUsers', () =>
       safeRequest(async () => {
@@ -329,8 +353,10 @@ function App() {
       }),
     )
 
+  const sessionActionBusy = (sessionId) => isBusy(`session:${sessionId}`)
+
   const updateSession = (sessionId, action) =>
-    withLoading('updateSession', () =>
+    withLoading(`session:${sessionId}`, () =>
       safeRequest(async () => {
         const mutation = action === 'accept' ? ACCEPT_SESSION : DECLINE_SESSION
         const key = action === 'accept' ? 'acceptMentorshipSessionRequest' : 'declineMentorshipSessionRequest'
@@ -384,13 +410,9 @@ function App() {
     updatingReviewModeration: isBusy('adminReviewModeration'),
   }
 
-  const scrollToHomeDashboard = () => {
-    document.getElementById('home-dashboard')?.scrollIntoView({ behavior: 'smooth' })
-  }
-
   const homePageElement = (
     <HomePage
-      isLoggedIn={Boolean(auth.token)}
+      isLoggedIn={false}
       mentors={mentorsForDirectory}
       reviews={recentReviews}
       onRefresh={loadHomepageData}
@@ -398,12 +420,46 @@ function App() {
       loadingReviews={isBusy('recentReviews')}
       onGetStarted={() => navigate('/auth/signup')}
       onExploreMentors={() => navigate('/mentors')}
-      onGoToDashboard={scrollToHomeDashboard}
+      onGoToDashboard={() => navigate('/sessions')}
       onBrowseMentors={() => navigate('/mentors')}
       onOpenMentor={(mentorId) => navigate(`/mentors/${mentorId}`)}
       showMobileGuestNav={roleLabel === 'guest'}
       onGoToLogin={() => navigate('/auth/login')}
     />
+  )
+
+  const authenticatedHomeContent = (
+    <Box
+      id="home-dashboard"
+      component="section"
+      sx={{
+        scrollMarginTop: { xs: 14, sm: 10 },
+        px: { xs: 2, sm: 3 },
+        pb: { xs: 3, sm: 4 },
+        pt: { xs: 1, sm: 2 },
+        maxWidth: 'lg',
+        width: '100%',
+        mx: 'auto',
+      }}
+    >
+      {roleLabel === 'user' ? (
+        <MenteeDashboardPage
+          mySessions={mySessions}
+          loadMySessions={loadMySessions}
+          loadingSessions={isBusy('sessions')}
+        />
+      ) : roleLabel === 'mentor' ? (
+        <MentorDashboardPage
+          mySessions={mySessions}
+          onLoadSessions={loadMySessions}
+          loadingSessions={isBusy('sessions')}
+          mentorUserId={auth?.user?.id}
+          onViewPublicProfile={(id) => navigate(`/mentors/${id}`)}
+        />
+      ) : roleLabel === 'admin' ? (
+        <AdminHomePage {...adminHomeProps} />
+      ) : null}
+    </Box>
   )
 
   return (
@@ -421,46 +477,7 @@ function App() {
         onSignOut={signOut}
       >
         <Routes>
-          <Route
-            path="/"
-            element={
-              roleLabel === 'guest' ? (
-                homePageElement
-              ) : (
-                <Stack component="article" spacing={0}>
-                  {homePageElement}
-                  <Box
-                    id="home-dashboard"
-                    component="section"
-                    sx={{
-                      scrollMarginTop: { xs: 14, sm: 10 },
-                      px: { xs: 2, sm: 3 },
-                      pb: { xs: 3, sm: 4 },
-                      maxWidth: 'lg',
-                      width: '100%',
-                      mx: 'auto',
-                    }}
-                  >
-                    {roleLabel === 'user' ? (
-                      <MenteeDashboardPage
-                        mySessions={mySessions}
-                        loadMySessions={loadMySessions}
-                        loadingSessions={isBusy('sessions')}
-                      />
-                    ) : roleLabel === 'mentor' ? (
-                      <MentorDashboardPage
-                        mySessions={mySessions}
-                        onLoadSessions={loadMySessions}
-                        loadingSessions={isBusy('sessions')}
-                      />
-                    ) : roleLabel === 'admin' ? (
-                      <AdminHomePage {...adminHomeProps} />
-                    ) : null}
-                  </Box>
-                </Stack>
-              )
-            }
-          />
+          <Route path="/" element={roleLabel === 'guest' ? homePageElement : authenticatedHomeContent} />
           <Route
             path="/auth/login"
             element={
@@ -497,7 +514,17 @@ function App() {
             path="/profile"
             element={
               ['user', 'mentor', 'admin'].includes(roleLabel) ? (
-                <UserProfilePage user={auth?.user} onSaveProfile={updateProfile} loading={isBusy('profile')} />
+                
+                <UserProfilePage
+                  user={auth?.user}
+                  onSaveProfile={updateProfile}
+                  loading={isBusy('profile')}
+                  onViewPublicMentorProfile={
+                    roleLabel === 'mentor' && auth?.user?.id
+                      ? () => navigate(`/mentors/${auth.user.id}`)
+                      : undefined
+                  }
+                />
               ) : (
                 <Navigate to={defaultPath} replace />
               )
@@ -512,6 +539,8 @@ function App() {
                   loadMentors={loadMentors}
                   loading={isBusy('mentors')}
                   openMentor={(mentorId) => navigate(`/mentors/${mentorId}`)}
+                  viewerRole={roleLabel}
+                  viewerId={auth?.user?.id}
                 />
               ) : (
                 <Navigate to={defaultPath} replace />
@@ -580,7 +609,7 @@ function App() {
                   loadMySessions={loadMySessions}
                   updateSession={updateSession}
                   loadingSessions={isBusy('sessions')}
-                  updatingSession={isBusy('updateSession')}
+                  sessionActionBusy={sessionActionBusy}
                 />
               ) : (
                 <Navigate to={defaultPath} replace />
@@ -595,6 +624,8 @@ function App() {
                   mySessions={mySessions}
                   onLoadSessions={loadMySessions}
                   loadingSessions={isBusy('sessions')}
+                  mentorUserId={auth?.user?.id}
+                  onViewPublicProfile={(id) => navigate(`/mentors/${id}`)}
                 />
               ) : (
                 <Navigate to={defaultPath} replace />
@@ -610,7 +641,7 @@ function App() {
                   updateSession={updateSession}
                   onRefresh={loadMySessions}
                   loadingSessions={isBusy('sessions')}
-                  updatingSession={isBusy('updateSession')}
+                  sessionActionBusy={sessionActionBusy}
                 />
               ) : (
                 <Navigate to={defaultPath} replace />

@@ -6,8 +6,8 @@ A mentorship platform with a **Django** + **GraphQL** API and a **React** (Vite)
 
 | Layer    | Technology |
 |----------|------------|
-| API      | Django 6, Graphene-Django, django-graphql-jwt |
-| Database | SQLite (default; swap via `DATABASES` in settings for production) |
+| API      | Django 6, Graphene-Django, PyJWT |
+| Database | **MongoDB** ([django-mongodb-backend](https://www.mongodb.com/docs/languages/python/django-mongodb/current/); Atlas URI + DB name in `.env`) |
 | Admin    | Django Admin (`/admin/`) |
 | Frontend | React 19, Vite, MUI, Apollo Client / GraphQL |
 
@@ -40,6 +40,8 @@ Create a `.env` file (see [.env.example](.env.example) for ideas). At minimum fo
 
 | Variable | Purpose |
 |----------|---------|
+| `MONGODB_URI` | MongoDB connection URI (e.g. Atlas `mongodb+srv://...`) |
+| `MONGODB_DB` | Database name (default `freementors`; tests use `freementors_test`) |
 | `DJANGO_SECRET_KEY` | Secret key (required in production) |
 | `DEBUG` | `true` for local dev |
 | `ALLOWED_HOSTS` | Comma-separated hosts |

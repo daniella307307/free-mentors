@@ -1,11 +1,36 @@
 import { gql } from 'graphql-request'
 
+/** Fields returned for the logged-in user (keep in sync with UserType / updateMyProfile). */
+const USER_ACCOUNT_FIELDS = `
+  id
+  username
+  email
+  role
+  firstName
+  lastName
+  address
+  bio
+  occupation
+  expertise
+  profilePicture
+  createdAt
+  updatedAt
+`
+
+export const ME = gql`
+  query Me {
+    me {
+      ${USER_ACCOUNT_FIELDS}
+    }
+  }
+`
+
 export const REGISTER = gql`
   mutation Register($username: String!, $email: String!, $password: String!) {
     registerUser(username: $username, email: $email, password: $password) {
       success
       message
-      user { id username email role }
+      user { ${USER_ACCOUNT_FIELDS} }
     }
   }
 `
@@ -16,7 +41,7 @@ export const LOGIN = gql`
       success
       message
       token
-      user { id username email role }
+      user { ${USER_ACCOUNT_FIELDS} }
     }
   }
 `

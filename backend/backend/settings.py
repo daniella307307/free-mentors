@@ -23,9 +23,9 @@ ALLOWED_HOSTS = [
 ]
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
+    "backend.mongo_contrib_apps.MongoAdminConfig",
+    "backend.mongo_contrib_apps.MongoAuthConfig",
+    "backend.mongo_contrib_apps.MongoContentTypesConfig",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
@@ -66,18 +66,23 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "backend.wsgi.application"
 
+# MongoDB via django-mongodb-backend — set MONGODB_URI (and optional MONGODB_DB) in .env.
+MONGODB_URI = os.getenv("MONGODB_URI", "").strip()
+if not MONGODB_URI:
+    raise ValueError(
+        "MONGODB_URI is not set. Add it to your environment or backend/.env "
+        "(e.g. mongodb+srv://user:pass@cluster.../?retryWrites=true&w=majority)."
+    )
+MONGODB_DB = os.getenv("MONGODB_DB", "freementors")
+_mongo_db_name = f"{MONGODB_DB}_test" if "test" in sys.argv else MONGODB_DB
+
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django_mongodb_backend",
+        "HOST": MONGODB_URI,
+        "NAME": _mongo_db_name,
     }
 }
-
-if "test" in sys.argv:
-    DATABASES["default"] = {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": ":memory:",
-    }
 
 AUTH_USER_MODEL = "users.User"
 
@@ -91,7 +96,14 @@ AUTH_PASSWORD_VALIDATORS = [
 GRAPHENE = {"SCHEMA": "backend.schema.schema"}
 JWT_EXPIRY_HOURS = 24
 STATIC_URL = "static/"
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+DEFAULT_AUTO_FIELD = "django_mongodb_backend.fields.ObjectIdAutoField"
+
+# Use MongoDB-compatible squashed migrations for contrib apps (official template).
+MIGRATION_MODULES = {
+    "admin": "mongo_migrations.admin",
+    "auth": "mongo_migrations.auth",
+    "contenttypes": "mongo_migrations.contenttypes",
+}
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",

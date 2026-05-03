@@ -54,6 +54,36 @@ class FreeMentorsGraphQLTests(TestCase):
         self.assertEqual(data["user"]["email"], "alice@example.com")
         self.assertEqual(data["user"]["role"], "user")
 
+    def test_me_returns_profile_when_authenticated(self):
+        u = self.create_user("meuser", "meuser@example.com", "pass123", role="mentor")
+        u.first_name = "Jane"
+        u.last_name = "Doe"
+        u.bio = "Mentor bio"
+        u.save()
+        query = """
+        query {
+          me {
+            id
+            email
+            role
+            firstName
+            lastName
+            bio
+          }
+        }
+        """
+        result = self.execute(query, token=self.token_for(u))
+        self.assertIsNone(result.errors)
+        self.assertEqual(result.data["me"]["email"], "meuser@example.com")
+        self.assertEqual(result.data["me"]["firstName"], "Jane")
+        self.assertEqual(result.data["me"]["lastName"], "Doe")
+        self.assertEqual(result.data["me"]["bio"], "Mentor bio")
+
+    def test_me_returns_null_when_anonymous(self):
+        result = self.execute("query { me { id } }")
+        self.assertIsNone(result.errors)
+        self.assertIsNone(result.data["me"])
+
     def test_login_user_returns_token(self):
         self.create_user("bob", "bob@example.com", "pass123", role="user")
         query = """

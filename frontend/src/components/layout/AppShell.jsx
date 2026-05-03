@@ -27,8 +27,8 @@ export default function AppShell({
         flexDirection: 'column',
         position: 'relative',
         overflow: 'auto',
-        paddingTop: isAuthRoute ? 0 : { xs: 8, sm: 8 },
-        marginBottom: isAuthRoute ? 0 : { xs: 8, sm: 8 },
+        paddingTop: 0,
+        marginBottom: isAuthRoute ? 0 : roleLabel === 'guest' ? { xs: 8, sm: 8 } : 0,
         backgroundColor: 'background.default',
         backgroundImage: (theme) =>
           `radial-gradient(1200px 500px at 10% -10%, ${alpha(theme.palette.primary.main, 0.09)} 0%, transparent 55%),
@@ -77,7 +77,11 @@ export default function AppShell({
           px: isAuthRoute ? 2 : { xs: 2, md: 3 },
         }}
       >
-        <Grid container sx={{ flex: 1, alignItems: 'stretch', minHeight: 0, mx: isAuthRoute ? 'auto' : 0, width: '100%' }}>
+        <Grid
+          container
+          spacing={{ xs: 0, md: showNavigationSidebar ? 3 : 0 }}
+          sx={{ flex: 1, alignItems: 'stretch', minHeight: 0, mx: isAuthRoute ? 'auto' : 0, width: '100%' }}
+        >
           {showNavigationSidebar ? (
             <Grid sx={{ display: { xs: 'none', md: 'block' } }} size={{ md: 3 }}>
               <Paper
@@ -134,7 +138,7 @@ export default function AppShell({
         </Grid>
       </Container>
 
-      {!isAuthRoute ? <AppFooter roleLabel={roleLabel} /> : null}
+      {!isAuthRoute && roleLabel === 'guest' ? <AppFooter roleLabel={roleLabel} /> : null}
     </Box>
   )
 }

@@ -645,6 +645,7 @@ class AdminSetMentorReviewHidden(graphene.Mutation):
 
 
 class Query(graphene.ObjectType):
+    me = graphene.Field(UserType)
     all_users = graphene.List(UserType)
     mentors = graphene.List(UserType)
     mentor = graphene.Field(UserType, mentorId=graphene.String(required=True))
@@ -652,6 +653,10 @@ class Query(graphene.ObjectType):
     mentor_reviews = graphene.List(MentorReviewType, mentorId=graphene.String(required=True))
     recent_reviews = graphene.List(MentorReviewType, limit=graphene.Int())
     flagged_mentor_reviews = graphene.List(MentorReviewType)
+
+    def resolve_me(self, info):
+        auth_user = get_auth_user(info)
+        return user_to_type(auth_user) if auth_user else None
 
     def resolve_all_users(self, info):
         require_admin(info)

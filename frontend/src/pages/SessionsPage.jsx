@@ -9,7 +9,7 @@ export default function SessionsPage({
   loadMySessions,
   updateSession,
   loadingSessions,
-  updatingSession,
+  sessionActionBusy = () => false,
 }) {
   return (
     <Card sx={{ border: '1px solid', borderColor: 'divider' }} elevation={0}>
@@ -30,7 +30,9 @@ export default function SessionsPage({
         />
         <Stack spacing={1.5}>
           {loadingSessions ? <LoadingState label="Loading sessions…" compact /> : null}
-          {mySessions.map((session) => (
+          {mySessions.map((session) => {
+            const rowBusy = role === 'mentor' ? sessionActionBusy(session.id) : false
+            return (
             <Paper
               key={session.id}
               elevation={0}
@@ -70,24 +72,25 @@ export default function SessionsPage({
                       size="small"
                       fullWidth
                       onClick={() => updateSession(session.id, 'accept')}
-                      disabled={updatingSession}
+                      disabled={rowBusy}
                     >
-                      {updatingSession ? 'Updating…' : 'Accept'}
+                      {rowBusy ? 'Updating…' : 'Accept'}
                     </Button>
                     <Button
                       variant="outlined"
                       size="small"
                       fullWidth
                       onClick={() => updateSession(session.id, 'decline')}
-                      disabled={updatingSession}
+                      disabled={rowBusy}
                     >
-                      {updatingSession ? 'Updating…' : 'Decline'}
+                      {rowBusy ? 'Updating…' : 'Decline'}
                     </Button>
                   </Stack>
                 ) : null}
               </Stack>
             </Paper>
-          ))}
+            )
+          })}
           {!loadingSessions && !mySessions.length ? (
             <Typography color="text.secondary">
               No sessions yet. Request a mentor from the directory to get started.

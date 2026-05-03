@@ -6,9 +6,12 @@ import {
   Card,
   CardContent,
   Grid,
+  Paper,
   Stack,
   Typography,
 } from '@mui/material'
+import PersonSearchRoundedIcon from '@mui/icons-material/PersonSearchRounded'
+import { alpha } from '@mui/material/styles'
 import LoadingState from '../components/LoadingState'
 import PageHeader from '../components/ui/PageHeader'
 
@@ -18,7 +21,15 @@ function truncateText(text, maxLen) {
   return `${s.slice(0, maxLen - 1)}…`
 }
 
-export default function MentorsPage({ mentors, loadMentors, openMentor, loading }) {
+export default function MentorsPage({
+  mentors,
+  loadMentors,
+  openMentor,
+  loading,
+  viewerRole = 'guest',
+  viewerId = null,
+}) {
+  const showSelfProfileCta = viewerRole === 'mentor' && viewerId != null && String(viewerId).length > 0
   useEffect(() => {
     loadMentors?.()
     // Load full directory on enter; parent may change identity — intentional once per mount.
@@ -46,6 +57,39 @@ export default function MentorsPage({ mentors, loadMentors, openMentor, loading 
       />
 
       {loading && !mentors.length ? <LoadingState label="Loading mentors…" /> : null}
+
+      {showSelfProfileCta ? (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2,
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 2,
+            bgcolor: (theme) => alpha(theme.palette.primary.main, 0.06),
+          }}
+        >
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }} justifyContent="space-between">
+            <Stack spacing={0.5}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                Your public mentor profile
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                You are not listed in the directory below (so mentees do not confuse you with someone to book). Open your
+                profile to see exactly what mentees see—without the option to request yourself.
+              </Typography>
+            </Stack>
+            <Button
+              variant="contained"
+              startIcon={<PersonSearchRoundedIcon />}
+              onClick={() => openMentor(String(viewerId))}
+              sx={{ flexShrink: 0, alignSelf: { xs: 'stretch', sm: 'center' } }}
+            >
+              View my profile
+            </Button>
+          </Stack>
+        </Paper>
+      ) : null}
 
       {!loading && !mentors.length ? (
         <Typography color="text.secondary">No mentors found. Try refreshing.</Typography>
