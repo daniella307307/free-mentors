@@ -17,7 +17,9 @@ import {
   TableRow,
   Typography,
 } from '@mui/material'
+import StarRatingDisplay from '../components/StarRatingDisplay'
 import LoadingState from '../components/LoadingState'
+import PageHeader from '../components/ui/PageHeader'
 
 const ROLE_OPTIONS = ['user', 'mentor', 'admin']
 
@@ -30,43 +32,42 @@ export default function AdminHomePage({
   onSetUserRole,
   loadingUsers = false,
   updatingRole = false,
-  onGoToMentors,
-  onGoToSessions,
+  flaggedMentorReviews = [],
+  onLoadFlaggedReviews,
+  onSetReviewHidden,
+  loadingFlaggedReviews = false,
+  updatingReviewModeration = false,
 }) {
   useEffect(() => {
     onLoadUsers()
-    // Intentionally once on mount; use "Refresh user list" to reload.
+    onLoadFlaggedReviews?.()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])  
+  }, [])
 
   return (
     <Stack spacing={2.5} width="100%" height="100%">
       <Card sx={{ border: '1px solid', borderColor: 'divider' }} elevation={0}>
         <CardContent sx={{ p: { xs: 2.5, sm: 3 } }}>
-          <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
-            Admin overview
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-            Browse all accounts, change roles from the table, and jump to mentors or sessions.
-          </Typography>
+          <PageHeader
+            title="Admin overview"
+            subtitle="Manage user roles and monitor high-level activity. Mentorship requests and mentor browsing are disabled for admin accounts."
+          />
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 2.5, flexWrap: 'wrap' }}>
-            <Chip label={`${mentorsCount} mentors (directory)`} variant="outlined" />
-            <Chip label={`${sessionsCount} sessions (yours)`} variant="outlined" />
-            <Chip label={`${adminUsers.length} users (full list)`} variant="outlined" color="primary" />
+            <Chip label={`${mentorsCount} mentors in directory`} variant="outlined" />
+            <Chip label={`${sessionsCount} sessions tied to your account`} variant="outlined" />
+            <Chip label={`${adminUsers.length} registered users`} variant="outlined" color="primary" />
           </Stack>
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-            <Button variant="outlined" onClick={onLoadUsers} fullWidth sx={{ py: 1.1, borderColor: 'divider' }} disabled={loadingUsers}>
-              {loadingUsers ? 'Loading users...' : 'Refresh user list'}
-            </Button>
-            <Button variant="outlined" onClick={onGoToMentors} fullWidth sx={{ py: 1.1, borderColor: 'divider' }}>
-              Open mentors
-            </Button>
-            <Button variant="outlined" onClick={onGoToSessions} fullWidth sx={{ py: 1.1, borderColor: 'divider' }}>
-              Open sessions
-            </Button>
-          </Stack>
+          <Button
+            variant="outlined"
+            onClick={onLoadUsers}
+            fullWidth
+            sx={{ py: 1.1, borderColor: 'divider', maxWidth: { sm: 360 } }}
+            disabled={loadingUsers}
+          >
+            {loadingUsers ? 'Loading users…' : 'Refresh user list'}
+          </Button>
         </CardContent>
       </Card>
 
@@ -81,7 +82,7 @@ export default function AdminHomePage({
           </Typography>
 
           <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
-            {loadingUsers ? <LoadingState label="Loading users..." compact /> : null}
+            {loadingUsers ? <LoadingState label="Loading users…" compact /> : null}
             <Table size="small" sx={{ minWidth: 720 }}>
               <TableHead>
                 <TableRow>
@@ -139,6 +140,92 @@ export default function AdminHomePage({
                     <TableCell colSpan={4}>
                       <Typography color="text.secondary" variant="body2">
                         No users loaded yet. Click &quot;Refresh user list&quot; above (or fix any error banner).
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </CardContent>
+      </Card>
+
+      <Card sx={{ border: '1px solid', borderColor: 'divider' }} elevation={0}>
+        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+          <PageHeader
+            title="Flagged reviews"
+            subtitle="Mentors flag reviews for your review. Hiding a review removes it from public mentor profiles and homepage feeds."
+          />
+          <Button
+            variant="outlined"
+            onClick={onLoadFlaggedReviews}
+            disabled={loadingFlaggedReviews}
+            sx={{ mb: 2, borderColor: 'divider' }}
+          >
+            {loadingFlaggedReviews ? 'Loading…' : 'Refresh flagged reviews'}
+          </Button>
+
+          <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
+            <Table size="small" sx={{ minWidth: 720 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700 }}>Mentor</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Reviewer</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Rating</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Comment</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {flaggedMentorReviews.map((r) => (
+                  <TableRow key={r.id} hover>
+                    <TableCell>{r.mentor?.username || '—'}</TableCell>
+                    <TableCell>{r.reviewer?.username || '—'}</TableCell>
+                    <TableCell>
+                      <StarRatingDisplay value={r.rating} size="small" />
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 280 }}>
+                      <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                        {r.comment || '—'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {r.hidden ? (
+                        <Chip size="small" label="Hidden" variant="outlined" />
+                      ) : (
+                        <Chip size="small" label="Visible" color="warning" variant="outlined" />
+                      )}
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 140 }}>
+                      {!r.hidden ? (
+                        <Button
+                          size="small"
+                          color="error"
+                          variant="outlined"
+                          disabled={updatingReviewModeration}
+                          onClick={() => onSetReviewHidden?.(r.id, true, null)}
+                        >
+                          Hide
+                        </Button>
+                      ) : (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          disabled={updatingReviewModeration}
+                          onClick={() => onSetReviewHidden?.(r.id, false, null)}
+                        >
+                          Unhide
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!flaggedMentorReviews.length ? (
+                  <TableRow>
+                    <TableCell colSpan={6}>
+                      <Typography color="text.secondary" variant="body2">
+                        No flagged reviews right now.
                       </Typography>
                     </TableCell>
                   </TableRow>

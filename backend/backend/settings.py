@@ -2,12 +2,10 @@ from pathlib import Path
 import os
 import sys
 
-import mongoengine  # type: ignore
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load backend/.env (and repo-root .env) so MONGODB_URI etc. apply when you run manage.py.
 load_dotenv(BASE_DIR / ".env")
 load_dotenv(BASE_DIR.parent / ".env")
 
@@ -25,8 +23,11 @@ ALLOWED_HOSTS = [
 ]
 
 INSTALLED_APPS = [
-    "django.contrib.auth",          # ← required by graphene_django
-    "django.contrib.contenttypes",  # ← required by django.contrib.auth
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
     "django.contrib.staticfiles",
     "corsheaders",
     "graphene_django",
@@ -35,13 +36,17 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "users.middleware.GraphQLJWTUserMiddleware",
 ]
 
-ROOT_URLCONF = 'backend.urls'
+ROOT_URLCONF = "backend.urls"
 
 TEMPLATES = [
     {
@@ -52,54 +57,47 @@ TEMPLATES = [
             "context_processors": [
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'backend.wsgi.application'
+WSGI_APPLICATION = "backend.wsgi.application"
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
 }
 
-# MongoDB connection (use in-memory mock during tests or when explicitly enabled)
-USE_MOCK_DB = os.getenv("USE_MOCK_DB", "false").lower() == "true"
+if "test" in sys.argv:
+    DATABASES["default"] = {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": ":memory:",
+    }
 
-_mongo_db = os.getenv("MONGODB_DB", "free_mentors")
+AUTH_USER_MODEL = "users.User"
 
-if "test" in sys.argv or USE_MOCK_DB:
-    import mongomock
-
-    _mock_uri = os.getenv("MONGODB_URI", "mongodb://127.0.0.1:27017")
-    mongoengine.connect(
-        db=_mongo_db,
-        host=_mock_uri,
-        mongo_client_class=mongomock.MongoClient,
-        alias="default",
-    )
-else:
-    _mongo_uri = os.getenv("MONGODB_URI")
-    if not _mongo_uri:
-        raise RuntimeError(
-            "Set MONGODB_URI in backend/.env (loaded automatically) or in the environment."
-        )
-    mongoengine.connect(db=_mongo_db, host=_mongo_uri, alias="default")
-    
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
 
 GRAPHENE = {"SCHEMA": "backend.schema.schema"}
 JWT_EXPIRY_HOURS = 24
-STATIC_URL = 'static/'
+STATIC_URL = "static/"
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
 
-# Allow local frontend dev servers even when Vite picks a different port.
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^http://localhost:\d+$",
     r"^http://127\.0\.0\.1:\d+$",

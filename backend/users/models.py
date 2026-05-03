@@ -1,86 +1,135 @@
-from mongoengine import (
-    Document,
-    DateTimeField,
-    EmailField,
-    ListField,
-    ReferenceField,
-    StringField,
-)  # type: ignore
-from datetime import datetime
+from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.db import models
+from django.utils import timezone
 
-class User(Document):
-    ROLE_CHOICES = ('user', 'mentor', 'admin')
 
-    # Auth fields
-    username   = StringField(required=True, unique=True, max_length=150)
-    email      = EmailField(required=True, unique=True)
-    password   = StringField(required=True)  # Store hashed passwords only (bcrypt/argon2)
+class UserManager(BaseUserManager):
+    use_in_migrations = True
 
-    # Role
-    role       = StringField(required=True, choices=ROLE_CHOICES, default='user')
+    def create_user(self, username, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError("Users must have an email address")
+        email = self.normalize_email(email)
+        extra_fields.setdefault("role", User.Role.USER)
+        user = self.model(username=username, email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
 
-    # Personal info
-    firstName  = StringField(max_length=30)
-    lastName   = StringField(max_length=30)
-    address    = StringField(max_length=255)
+    def create_superuser(self, username, email, password=None, **extra_fields):
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("role", User.Role.ADMIN)
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
+        return self.create_user(username, email, password, **extra_fields)
 
-    # Profile
-    bio            = StringField()
-    occupation     = StringField(max_length=255)
-    expertise      = StringField(max_length=255)
-    profilePicture = StringField()  # Store image URL or file path as string
 
-    # Timestamps
-    createdAt  = DateTimeField(default=datetime.utcnow)
-    updatedAt  = DateTimeField(default=datetime.utcnow)
+class User(AbstractUser):
+    """Application user with mentorship roles (stored in SQL; Django admin + GraphQL)."""
 
-    meta = {
-        'collection': 'users',
-        'indexes': ['email', 'username', 'role'],
-        'ordering': ['-createdAt']
-    }
+    class Role(models.TextChoices):
+        USER = "user", "User"
+        MENTOR = "mentor", "Mentor"
+        ADMIN = "admin", "Admin"
 
-    def save(self, *args, **kwargs):
-        self.updatedAt = datetime.utcnow()
-        return super().save(*args, **kwargs)
+    email = models.EmailField("email address", unique=True)
+    role = models.CharField(max_length=10, choices=Role.choices, default=Role.USER, db_index=True)
 
-    def to_dict(self):
-        return {
-            "id": str(self.id),
-            "username": self.username,
-            "email": self.email,
-            "role": self.role,
-            "firstName": self.firstName,
-            "lastName": self.lastName,
-            "address": self.address,
-            "bio": self.bio,
-            "occupation": self.occupation,
-            "expertise": self.expertise,
-            "profilePicture": self.profilePicture,
-            "createdAt": self.createdAt.isoformat() if self.createdAt else None,
-            "updatedAt": self.updatedAt.isoformat() if self.updatedAt else None,
-        }
+    address = models.CharField(max_length=255, blank=True)
+    bio = models.TextField(blank=True)
+    occupation = models.CharField(max_length=255, blank=True)
+    expertise = models.CharField(max_length=255, blank=True)
+    profile_picture = models.CharField(max_length=500, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = UserManager()
+
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["username"]
+
+    class Meta:
+        ordering = ["-date_joined"]
 
     def __str__(self):
         return f"{self.username} ({self.role})"
 
+    @classmethod
+    def role_values(cls):
+        return [c.value for c in cls.Role]
 
-class MentorshipSession(Document):
-    STATUS_CHOICES = ("pending", "accepted", "declined")
 
-    mentor = ReferenceField(User, required=True)
-    mentee = ReferenceField(User, required=True)
-    questions = ListField(StringField(), default=list)
-    status = StringField(required=True, choices=STATUS_CHOICES, default="pending")
-    createdAt = DateTimeField(default=datetime.utcnow)
-    updatedAt = DateTimeField(default=datetime.utcnow)
+class MentorshipSession(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        COMPLETED = "completed", "Completed"
+        DECLINED = "declined", "Declined"
 
-    meta = {
-        "collection": "mentorship_sessions",
-        "indexes": ["mentor", "mentee", "status"],
-        "ordering": ["-createdAt"],
-    }
+    mentor = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="sessions_as_mentor",
+    )
+    mentee = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="sessions_as_mentee",
+    )
+    session_date = models.CharField(max_length=10)
+    session_time = models.CharField(max_length=20)
+    session_slot = models.CharField(max_length=100)
+    questions = models.JSONField(default=list, blank=True)
+    status = models.CharField(
+        max_length=12,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
 
-    def save(self, *args, **kwargs):
-        self.updatedAt = datetime.utcnow()
-        return super().save(*args, **kwargs)
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["mentor", "mentee", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.mentor_id}↔{self.mentee_id} {self.session_date}"
+
+
+class MentorReview(models.Model):
+    mentor = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="reviews_received",
+    )
+    reviewer = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="reviews_written",
+    )
+    rating = models.PositiveSmallIntegerField()
+    comment = models.CharField(max_length=1000, blank=True)
+    flagged = models.BooleanField(default=False)
+    hidden = models.BooleanField(default=False)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["mentor", "-created_at"]),
+            models.Index(fields=["flagged", "hidden"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["mentor", "reviewer"],
+                name="unique_review_per_mentor_reviewer",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Review {self.rating}★ for mentor {self.mentor_id}"
